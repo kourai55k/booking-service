@@ -14,19 +14,32 @@ The **Booking Service** is a backend application for managing restaurant reserva
 - **Golang** 
 - **PostgreSQL** (for storing data)
 - **Redis** (for caching)
+- **Docker** (for containerization)
+- **Docker-Compose** (for container orchestration)
 - **gRPC** (for inter-service communication)
 - **JWT** (for authentication)
 - **Slog** (for logging)
 
-## Installation & Setup
+## Installation & Setup 
 
-### 1. Clone the repository
+### Clone the repository
 ```sh
 git clone https://github.com/kourai55k/booking-service
 cd booking-service
 ```
 
-### 2. Build and run the service
+### Build and run
 ```sh
 go run cmd/booking-service/main.go
+```
+
+### Build and run in Docker 
+```sh
+docker build -t booking-service .
+docker run -p 8080:8080 --name=booking-service booking-service
+```
+
+### Build and run in Docker-Compose
+```sh
+docker-compose up --build
 ```

@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  booking-service:
+    build: .
+    ports:
+    - 8080:8080
+    env_file:
+      - .env
+    volumes:
+      - ./configs:/root/configs
+    networks:
+      - booking-network
+
+networks:
+  booking-network:
+    driver: bridge
