@@ -1,16 +1,33 @@
-version: "3.8"
-
 services:
   booking-service:
     build: .
     ports:
-    - 8080:8080
+      - "8080:8080"
     env_file:
       - .env
     volumes:
       - ./config:/root/config
     networks:
       - booking-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16
+    container_name: postgres-db
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "5432:5432"
+    networks:
+      - booking-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   booking-network:

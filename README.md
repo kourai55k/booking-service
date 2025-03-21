@@ -28,17 +28,6 @@ git clone https://github.com/kourai55k/booking-service
 cd booking-service
 ```
 
-### Build and run
-```sh
-go run cmd/booking-service/main.go
-```
-
-### Build and run in Docker 
-```sh
-docker build -t booking-service .
-docker run -p 8080:8080 --name=booking-service booking-service
-```
-
 ### Build and run in Docker-Compose
 ```sh
 docker-compose up --build

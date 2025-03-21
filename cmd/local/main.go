@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,7 +10,7 @@ import (
 	"time"
 
 	"github.com/kourai55k/booking-service/internal/config"
-	"github.com/kourai55k/booking-service/internal/data/postgres"
+	"github.com/kourai55k/booking-service/internal/data"
 	"github.com/kourai55k/booking-service/internal/domain/models"
 	"github.com/kourai55k/booking-service/internal/service"
 	"github.com/kourai55k/booking-service/internal/transport/handlers/http/userHandler"
@@ -24,6 +23,7 @@ const (
 	envProd  = "prod"
 )
 
+// this is file with main func with inMemoryUserRepo implementation for testing
 func main() {
 	// load config
 	cfg := config.MustLoad()
@@ -33,24 +33,11 @@ func main() {
 
 	log.Info("starting application")
 
-	// test
-	pgPool, err := postgres.ConnectPool(context.Background(), cfg.PostgresConnString)
-	if err != nil {
-		log.Error("failed to connect to database", "err", err.Error())
-	} else {
-		log.Info("connected to database successfully")
-	}
-
-	userRepo := postgres.NewUserRepo(pgPool)
-	err = userRepo.CreateUserTable()
-	if err != nil {
-		log.Error("failed to create user table", "err", err.Error())
-	} else {
-		log.Info("created user table successfully")
-	}
+	userRepo := data.NewInMemoryUserRepo()
 	userService := service.NewUserService(userRepo)
 	httpUserHandler := userHandler.NewUserHandler(userService, log)
 
+	// create test users
 	userRepo.CreateUser(&models.User{Name: "name1", Login: "login1", HashPass: "hashpass1"})
 	userRepo.CreateUser(&models.User{Name: "name2", Login: "login2", HashPass: "hashpass2"})
 
@@ -58,23 +45,12 @@ func main() {
 
 	// setup server
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/favicon.ico" {
-			log.Debug("GET / was called")
-		}
 
-		fmt.Fprint(w, "Hello world")
-	})
-	mux.HandleFunc("GET /ping", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/favicon.ico" {
-			log.Debug("GET /ping was called")
-		}
+	// register routes
+	mux.HandleFunc("GET /user/{id}", httpUserHandler.GetUserByID)
 
-		fmt.Fprint(w, "server is working")
-	})
-
-	mux.HandleFunc("GET /user", httpUserHandler.GetUserByID)
-
+	// create server
+	// TODO: use config file to configure server
 	server := http.Server{
 		Addr:    ":8080",
 		Handler: mux,
