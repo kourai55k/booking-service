@@ -13,6 +13,7 @@ import (
 	"github.com/kourai55k/booking-service/internal/data"
 	"github.com/kourai55k/booking-service/internal/domain/models"
 	"github.com/kourai55k/booking-service/internal/service"
+	"github.com/kourai55k/booking-service/internal/transport/handlers/http/router"
 	"github.com/kourai55k/booking-service/internal/transport/handlers/http/userHandler"
 	prettyslog "github.com/kourai55k/booking-service/pkg/prettySlog"
 )
@@ -30,31 +31,24 @@ func main() {
 
 	// setup logger
 	log := setupLogger(cfg.Env)
+	log.Debug("config loaded", "config", cfg)
+	log.Debug("logger initialized")
 
-	log.Info("starting application")
-
+	// DI
 	userRepo := data.NewInMemoryUserRepo()
 	userService := service.NewUserService(userRepo)
 	httpUserHandler := userHandler.NewUserHandler(userService, log)
-
-	// create test users
-	userRepo.CreateUser(&models.User{Name: "name1", Login: "login1", HashPass: "hashpass1"})
-	userRepo.CreateUser(&models.User{Name: "name2", Login: "login2", HashPass: "hashpass2"})
-
-	log.Info("created test users")
-
-	// setup server
-	mux := http.NewServeMux()
-
-	// register routes
-	mux.HandleFunc("GET /user/{id}", httpUserHandler.GetUserByID)
-
-	// create server
+	r := router.NewRouter(httpUserHandler)
 	// TODO: use config file to configure server
 	server := http.Server{
 		Addr:    ":8080",
-		Handler: mux,
+		Handler: r,
 	}
+	log.Debug("dependencies injected")
+
+	// test users
+	userRepo.CreateUser(&models.User{Name: "name1", Login: "login1", HashPass: "hashpass1"})
+	userRepo.CreateUser(&models.User{Name: "name2", Login: "login2", HashPass: "hashpass2"})
 
 	// Channel to listen for OS signals
 	stop := make(chan os.Signal, 1)
@@ -62,15 +56,17 @@ func main() {
 
 	// Start the server in a goroutine
 	go func() {
-		log.Info("Starting server on :8080")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Info("ListenAndServe error:", "err", err)
+			log.Error("ListenAndServe error:", "err", err.Error())
+			stop <- os.Interrupt
+			return
 		}
 	}()
+	log.Debug("server started", "addr", server.Addr)
+	log.Info("app started")
 
 	// Block until we receive a termination signal
 	<-stop
-	log.Info("Shutting down server...")
 
 	// Create a context with a timeout for graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -78,10 +74,11 @@ func main() {
 
 	// Attempt to gracefully shutdown the server
 	if err := server.Shutdown(ctx); err != nil {
-		log.Info("Server shutdown error:", "err", err)
+		log.Error("server shutdown error:", "err", err.Error())
 	}
 
-	log.Info("Server stopped gracefully")
+	log.Debug("server stopped gracefully")
+	log.Info("app stopped")
 }
 
 func setupLogger(env string) *slog.Logger {

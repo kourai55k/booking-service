@@ -21,7 +21,7 @@ func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if r.URL.Path != "/favicon.ico" {
-		log.Debug("GET /user was called")
+		log.Debug("request received", "method", r.Method, "path", r.URL.Path)
 	}
 
 	// Extract the 'id' path parameter using Go 1.22's PathValue

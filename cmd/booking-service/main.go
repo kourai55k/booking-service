@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"github.com/kourai55k/booking-service/internal/data/postgres"
 	"github.com/kourai55k/booking-service/internal/domain/models"
 	"github.com/kourai55k/booking-service/internal/service"
+	"github.com/kourai55k/booking-service/internal/transport/handlers/http/router"
 	"github.com/kourai55k/booking-service/internal/transport/handlers/http/userHandler"
 	prettyslog "github.com/kourai55k/booking-service/pkg/prettySlog"
 )
@@ -50,34 +50,17 @@ func main() {
 	}
 	userService := service.NewUserService(userRepo)
 	httpUserHandler := userHandler.NewUserHandler(userService, log)
+	r := router.NewRouter(httpUserHandler)
 
+	// test users
 	userRepo.CreateUser(&models.User{Name: "name1", Login: "login1", HashPass: "hashpass1"})
 	userRepo.CreateUser(&models.User{Name: "name2", Login: "login2", HashPass: "hashpass2"})
 
 	log.Info("created test users")
 
-	// setup server
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/favicon.ico" {
-			log.Debug("GET / was called")
-		}
-
-		fmt.Fprint(w, "Hello world")
-	})
-	mux.HandleFunc("GET /ping", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/favicon.ico" {
-			log.Debug("GET /ping was called")
-		}
-
-		fmt.Fprint(w, "server is working")
-	})
-
-	mux.HandleFunc("GET /user", httpUserHandler.GetUserByID)
-
 	server := http.Server{
 		Addr:    ":8080",
-		Handler: mux,
+		Handler: r,
 	}
 
 	// Channel to listen for OS signals
@@ -88,7 +71,9 @@ func main() {
 	go func() {
 		log.Info("Starting server on :8080")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Info("ListenAndServe error:", "err", err)
+			log.Info("ListenAndServe error:", "err", err.Error())
+			stop <- os.Interrupt
+			return
 		}
 	}()
 
@@ -102,7 +87,7 @@ func main() {
 
 	// Attempt to gracefully shutdown the server
 	if err := server.Shutdown(ctx); err != nil {
-		log.Info("Server shutdown error:", "err", err)
+		log.Error("Server shutdown error:", "err", err.Error())
 	}
 
 	log.Info("Server stopped gracefully")

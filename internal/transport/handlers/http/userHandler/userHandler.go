@@ -1,6 +1,10 @@
 package userHandler
 
-import "github.com/kourai55k/booking-service/internal/domain/models"
+import (
+	"net/http"
+
+	"github.com/kourai55k/booking-service/internal/domain/models"
+)
 
 type UserService interface {
 	GetUsers() ([]*models.User, error)
@@ -25,4 +29,26 @@ type UserHandler struct {
 
 func NewUserHandler(userService UserService, logger Logger) *UserHandler {
 	return &UserHandler{userService: userService, logger: logger}
+}
+
+// stubs
+
+func (u *UserHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
+	panic("implement me")
+}
+
+func (u *UserHandler) GetUserByLogin(w http.ResponseWriter, r *http.Request) {
+	panic("implement me")
+}
+
+func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	panic("implement me")
+}
+
+func (u *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	panic("implement me")
+}
+
+func (u *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	panic("implement me")
 }
