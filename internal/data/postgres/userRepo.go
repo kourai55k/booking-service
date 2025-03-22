@@ -2,9 +2,13 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/kourai55k/booking-service/internal/domain"
 	"github.com/kourai55k/booking-service/internal/domain/models"
 )
 
@@ -34,26 +38,16 @@ func (u *UserRepo) CreateUserTable() error {
 	return nil
 }
 
-// GetUserByID retrieves a user by its ID.
-func (r *UserRepo) GetUserByID(id uint) (*models.User, error) {
-	query := "SELECT id, name, login, hashpass FROM users WHERE id = $1"
-	row := r.pool.QueryRow(context.Background(), query, id)
-
-	var user models.User
-	if err := row.Scan(&user.ID, &user.Name, &user.Login, &user.HashPass); err != nil {
-		// TODO: check if user not found and return domain.ErrUserNotFound
-		return nil, fmt.Errorf("UserRepo.GetUserByID: %w", err)
-	}
-
-	return &user, nil
-}
-
 // CreateUser creates a new user in the database and returns the new user's id.
 func (r *UserRepo) CreateUser(user *models.User) (uint, error) {
-	query := "INSERT INTO users (name, login, hashpass) VALUES ($1, $2, $3) RETURNING id"
+	query := "INSERT INTO users (name, login, hashpass, role) VALUES ($1, $2, $3, $4) RETURNING id"
 	var id uint
-	err := r.pool.QueryRow(context.Background(), query, user.Name, user.Login, user.HashPass).Scan(&id)
+	err := r.pool.QueryRow(context.Background(), query, user.Name, user.Login, user.HashPass, user.Role).Scan(&id)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // Check unique constraint violation
+			return 0, fmt.Errorf("UserRepo.CreateUser: %w", domain.ErrUserAlreadyExists)
+		}
 		return 0, fmt.Errorf("UserRepo.CreateUser: %w", err)
 	}
 	return id, nil
@@ -61,7 +55,7 @@ func (r *UserRepo) CreateUser(user *models.User) (uint, error) {
 
 // GetUsers retrieves all users from the database.
 func (r *UserRepo) GetUsers() ([]*models.User, error) {
-	query := "SELECT id, name, login FROM users"
+	query := "SELECT id, name, login, hashpass, role FROM users"
 	rows, err := r.pool.Query(context.Background(), query)
 	if err != nil {
 		return nil, fmt.Errorf("UserRepo.GetUsers: %w", err)
@@ -71,7 +65,10 @@ func (r *UserRepo) GetUsers() ([]*models.User, error) {
 	var users []*models.User
 	for rows.Next() {
 		var user models.User
-		if err := rows.Scan(&user.ID, &user.Name, &user.Login); err != nil {
+		if err := rows.Scan(&user.ID, &user.Name, &user.Login, &user.HashPass, &user.Role); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, fmt.Errorf("UserRepo.GetUsers: %w", domain.ErrUsersNotFound)
+			}
 			return nil, fmt.Errorf("UserRepo.GetUsers: %w", err)
 		}
 		users = append(users, &user)
@@ -80,13 +77,32 @@ func (r *UserRepo) GetUsers() ([]*models.User, error) {
 	return users, nil
 }
 
+// GetUserByID retrieves a user by its ID.
+func (r *UserRepo) GetUserByID(id uint) (*models.User, error) {
+	query := "SELECT id, name, login, hashpass, role FROM users WHERE id = $1"
+	row := r.pool.QueryRow(context.Background(), query, id)
+
+	var user models.User
+	if err := row.Scan(&user.ID, &user.Name, &user.Login, &user.HashPass, &user.Role); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("UserRepo.GetUserByID: %w", domain.ErrUserNotFound)
+		}
+		return nil, fmt.Errorf("UserRepo.GetUserByID: %w", err)
+	}
+
+	return &user, nil
+}
+
 // GetUserByLogin retrieves a user by its login.
 func (r *UserRepo) GetUserByLogin(login string) (*models.User, error) {
-	query := "SELECT id, name, login FROM users WHERE login = $1"
+	query := "SELECT id, name, login, hashpass, role FROM users WHERE login = $1"
 	row := r.pool.QueryRow(context.Background(), query, login)
 
 	var user models.User
-	if err := row.Scan(&user.ID, &user.Name, &user.Login); err != nil {
+	if err := row.Scan(&user.ID, &user.Name, &user.Login, &user.HashPass, &user.Role); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("UserRepo.GetUserByLogin: %w", domain.ErrUserNotFound)
+		}
 		return nil, fmt.Errorf("UserRepo.GetUserByLogin: %w", err)
 	}
 
@@ -95,14 +111,58 @@ func (r *UserRepo) GetUserByLogin(login string) (*models.User, error) {
 
 // UpdateUser updates an existing user in the database.
 func (r *UserRepo) UpdateUser(user *models.User) error {
-	query := "UPDATE users SET name = $2, login = $3 WHERE id = $1"
-	_, err := r.pool.Exec(context.Background(), query, user.ID, user.Name, user.Login)
-	return err
+	// Проверяем, существует ли пользователь
+	existsQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)"
+	var exists bool
+	err := r.pool.QueryRow(context.Background(), existsQuery, user.ID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("UserRepo.UpdateUser: check user existence failed: %w", err) // Ошибка БД
+	}
+
+	// Если пользователя нет, возвращаем ошибку
+	if !exists {
+		return domain.ErrUserNotFound
+	}
+
+	// Выполняем UPDATE только если пользователь существует
+	query := `
+		UPDATE users
+		SET name = COALESCE(NULLIF($2, ''), name),
+		    name = COALESCE(NULLIF($3, ''), name),
+		    login = COALESCE(NULLIF($4, ''), login),
+		    hashpass = COALESCE(NULLIF($5, ''), hashpass),
+		    role = COALESCE(NULLIF($6, ''), role)
+		WHERE id = $1
+	`
+	_, err = r.pool.Exec(context.Background(), query, user.ID, user.Name, user.Login, user.HashPass, user.Role)
+	if err != nil {
+		return fmt.Errorf("UpdateUser failed: %w", err)
+	}
+
+	return nil
 }
 
-// DeleteUser deletes a user in the database.
+// DeleteUser deletes a user from the database.
 func (r *UserRepo) DeleteUser(id uint) error {
+	// Проверяем, существует ли пользователь
+	existsQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)"
+	var exists bool
+	err := r.pool.QueryRow(context.Background(), existsQuery, id).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("UserRepo.DeleteUser: check user existence failed: %w", err) // Ошибка БД
+	}
+
+	// Если пользователя нет, возвращаем ошибку
+	if !exists {
+		return domain.ErrUserNotFound
+	}
+
+	// Удаляем пользователя
 	query := "DELETE FROM users WHERE id = $1"
-	_, err := r.pool.Exec(context.Background(), query, id)
-	return err
+	_, err = r.pool.Exec(context.Background(), query, id)
+	if err != nil {
+		return fmt.Errorf("UserRepo.DeleteUser failed: %w", err)
+	}
+
+	return nil
 }

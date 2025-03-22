@@ -6,6 +6,7 @@ import (
 	"github.com/kourai55k/booking-service/internal/domain/models"
 )
 
+//go:generate mockgen -source=userHandler.go -destination=mocks/mock_user_service.go -package=mocks
 type UserService interface {
 	GetUsers() ([]*models.User, error)
 	GetUserByID(id uint) (*models.User, error)
@@ -32,18 +33,6 @@ func NewUserHandler(userService UserService, logger Logger) *UserHandler {
 }
 
 // stubs
-
-func (u *UserHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
-	panic("implement me")
-}
-
-func (u *UserHandler) GetUserByLogin(w http.ResponseWriter, r *http.Request) {
-	panic("implement me")
-}
-
-func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	panic("implement me")
-}
 
 func (u *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	panic("implement me")

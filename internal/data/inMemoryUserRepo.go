@@ -61,7 +61,19 @@ func (r *InMemoryUserRepo) CreateUser(user *models.User) (uint, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	// Check if a user with the same login already exists
+	for _, existingUser := range r.users {
+		if existingUser.Login == user.Login {
+			return 0, fmt.Errorf("InMemoryUserRepo.CreateUser: %w", domain.ErrUserAlreadyExists)
+		}
+	}
+
+	// Generate a new ID (ensure we don’t overwrite an existing one)
 	id := uint(len(r.users) + 1)
+	for _, exists := r.users[id]; exists; id++ { // Ensure the ID is unique
+	}
+
+	// Set the new user ID and save it
 	user.ID = id
 	r.users[id] = user
 

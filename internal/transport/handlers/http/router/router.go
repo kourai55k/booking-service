@@ -28,6 +28,9 @@ func NewRouter(userHandler UserHandler) *Router {
 func (r *Router) RegisterRoutes() *http.ServeMux {
 	// users routes
 	r.mux.HandleFunc("GET /user/{id}", r.userHandler.GetUserByID)
+	r.mux.HandleFunc("GET /user", r.userHandler.GetUserByLogin)
+	r.mux.HandleFunc("GET /users", r.userHandler.GetUsers)
+	r.mux.HandleFunc("POST /user", r.userHandler.CreateUser)
 
 	return r.mux
 }

@@ -5,17 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/kourai55k/booking-service/internal/domain"
 	"github.com/kourai55k/booking-service/internal/domain/models"
 )
 
-type getUserByIDResponse struct {
+type getUserByLoginResponse struct {
 	User *models.User `json:"user"`
 }
 
-func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) GetUserByLogin(w http.ResponseWriter, r *http.Request) {
 	const op = "http.userHandler.GetUserByID"
 	log := h.logger
 
@@ -23,18 +22,14 @@ func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 		log.Debug("request received", "method", r.Method, "path", r.URL.Path)
 	}
 
-	// Extract the 'id' path parameter using Go 1.22's PathValue
-	idStr := r.PathValue("id")
-
-	// Convert 'id' to uint
-	id, err := strconv.ParseUint(idStr, 10, 32)
-	if err != nil || idStr == "" {
+	login := r.URL.Query().Get("login")
+	if login == "" {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		log.Error("bad request", "err", fmt.Errorf("%s: bad request", op).Error())
 		return
 	}
 
-	user, err := h.userService.GetUserByID(uint(id))
+	user, err := h.userService.GetUserByLogin(login)
 	if err != nil {
 		if errors.Is(err, domain.ErrUserNotFound) {
 			http.Error(w, "user not found", http.StatusNotFound)
@@ -46,7 +41,7 @@ func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var res getUserByIDResponse
+	var res getUserByLoginResponse
 	res.User = user
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
