@@ -11,7 +11,6 @@ import (
 
 	"github.com/kourai55k/booking-service/internal/config"
 	"github.com/kourai55k/booking-service/internal/data/postgres"
-	"github.com/kourai55k/booking-service/internal/domain/models"
 	"github.com/kourai55k/booking-service/internal/service"
 	"github.com/kourai55k/booking-service/internal/transport/handlers/http/router"
 	"github.com/kourai55k/booking-service/internal/transport/handlers/http/userHandler"
@@ -30,38 +29,30 @@ func main() {
 
 	// setup logger
 	log := setupLogger(cfg.Env)
+	log.Debug("config loaded", "config", cfg)
+	log.Debug("logger initialized")
 
-	log.Info("starting application")
+	// dependency injection
 
-	// test
+	// connecting to postgres
 	pgPool, err := postgres.ConnectPool(context.Background(), cfg.PostgresConnString)
 	if err != nil {
 		log.Error("failed to connect to database", "err", err.Error())
 	} else {
-		log.Info("connected to database successfully")
+		log.Debug("connected to database successfully")
 	}
 
 	userRepo := postgres.NewUserRepo(pgPool)
-	err = userRepo.CreateUserTable()
-	if err != nil {
-		log.Error("failed to create user table", "err", err.Error())
-	} else {
-		log.Info("created user table successfully")
-	}
+	userRepo.CreateUserTable()
 	userService := service.NewUserService(userRepo)
 	httpUserHandler := userHandler.NewUserHandler(userService, log)
 	r := router.NewRouter(httpUserHandler)
-
-	// test users
-	userRepo.CreateUser(&models.User{Name: "name1", Login: "login1", HashPass: "hashpass1"})
-	userRepo.CreateUser(&models.User{Name: "name2", Login: "login2", HashPass: "hashpass2"})
-
-	log.Info("created test users")
-
+	// TODO: use config file to configure server
 	server := http.Server{
 		Addr:    ":8080",
 		Handler: r,
 	}
+	log.Debug("dependencies injected")
 
 	// Channel to listen for OS signals
 	stop := make(chan os.Signal, 1)
@@ -69,17 +60,17 @@ func main() {
 
 	// Start the server in a goroutine
 	go func() {
-		log.Info("Starting server on :8080")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Info("ListenAndServe error:", "err", err.Error())
+			log.Error("ListenAndServe error:", "err", err.Error())
 			stop <- os.Interrupt
 			return
 		}
 	}()
+	log.Debug("server started", "addr", server.Addr)
+	log.Info("app started")
 
 	// Block until we receive a termination signal
 	<-stop
-	log.Info("Shutting down server...")
 
 	// Create a context with a timeout for graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -87,10 +78,11 @@ func main() {
 
 	// Attempt to gracefully shutdown the server
 	if err := server.Shutdown(ctx); err != nil {
-		log.Error("Server shutdown error:", "err", err.Error())
+		log.Error("server shutdown error:", "err", err.Error())
 	}
 
-	log.Info("Server stopped gracefully")
+	log.Debug("server stopped gracefully")
+	log.Info("app stopped")
 }
 
 func setupLogger(env string) *slog.Logger {

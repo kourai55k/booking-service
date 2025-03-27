@@ -31,6 +31,14 @@ func (r *Router) RegisterRoutes() *http.ServeMux {
 	r.mux.HandleFunc("GET /user", r.userHandler.GetUserByLogin)
 	r.mux.HandleFunc("GET /users", r.userHandler.GetUsers)
 	r.mux.HandleFunc("POST /user", r.userHandler.CreateUser)
+	r.mux.HandleFunc("PATCH /user/{id}", r.userHandler.UpdateUser)
+	r.mux.HandleFunc("DELETE /user/{id}", r.userHandler.DeleteUser)
+
+	// auth routes
+
+	// restrants routes
+
+	// bookings routes
 
 	return r.mux
 }

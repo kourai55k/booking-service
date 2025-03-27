@@ -18,9 +18,7 @@ func (h *UserHandler) GetUserByLogin(w http.ResponseWriter, r *http.Request) {
 	const op = "http.userHandler.GetUserByID"
 	log := h.logger
 
-	if r.URL.Path != "/favicon.ico" {
-		log.Debug("request received", "method", r.Method, "path", r.URL.Path)
-	}
+	log.Debug("request received", "method", r.Method, "path", r.URL.Path)
 
 	login := r.URL.Query().Get("login")
 	if login == "" {

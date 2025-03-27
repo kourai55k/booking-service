@@ -34,10 +34,6 @@ func NewUserHandler(userService UserService, logger Logger) *UserHandler {
 
 // stubs
 
-func (u *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
-	panic("implement me")
-}
-
 func (u *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	panic("implement me")
 }

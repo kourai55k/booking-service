@@ -33,7 +33,7 @@ func (u *UserRepo) CreateUserTable() error {
 	`
 	_, err := u.pool.Exec(context.Background(), query)
 	if err != nil {
-		return fmt.Errorf("CreateUserTable: failed to create table: %w", err)
+		return fmt.Errorf("CreateUserTable: %w", err)
 	}
 	return nil
 }
@@ -66,12 +66,13 @@ func (r *UserRepo) GetUsers() ([]*models.User, error) {
 	for rows.Next() {
 		var user models.User
 		if err := rows.Scan(&user.ID, &user.Name, &user.Login, &user.HashPass, &user.Role); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return nil, fmt.Errorf("UserRepo.GetUsers: %w", domain.ErrUsersNotFound)
-			}
 			return nil, fmt.Errorf("UserRepo.GetUsers: %w", err)
 		}
 		users = append(users, &user)
+	}
+
+	if len(users) == 0 {
+		return nil, fmt.Errorf("UserRepo.GetUsers: %w", domain.ErrUsersNotFound)
 	}
 
 	return users, nil
@@ -111,32 +112,70 @@ func (r *UserRepo) GetUserByLogin(login string) (*models.User, error) {
 
 // UpdateUser updates an existing user in the database.
 func (r *UserRepo) UpdateUser(user *models.User) error {
-	// Проверяем, существует ли пользователь
-	existsQuery := "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)"
+	ctx := context.Background()
+
+	// Check if the user exists
 	var exists bool
-	err := r.pool.QueryRow(context.Background(), existsQuery, user.ID).Scan(&exists)
+	err := r.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", user.ID).Scan(&exists)
 	if err != nil {
-		return fmt.Errorf("UserRepo.UpdateUser: check user existence failed: %w", err) // Ошибка БД
+		return fmt.Errorf("UserRepo.UpdateUser: %w", err) // Wrapping the DB error
 	}
-
-	// Если пользователя нет, возвращаем ошибку
 	if !exists {
-		return domain.ErrUserNotFound
+		return fmt.Errorf("UserRepo.UpdateUser: %w", domain.ErrUserNotFound) // Wrapping the domain error
 	}
 
-	// Выполняем UPDATE только если пользователь существует
-	query := `
-		UPDATE users
-		SET name = COALESCE(NULLIF($2, ''), name),
-		    name = COALESCE(NULLIF($3, ''), name),
-		    login = COALESCE(NULLIF($4, ''), login),
-		    hashpass = COALESCE(NULLIF($5, ''), hashpass),
-		    role = COALESCE(NULLIF($6, ''), role)
-		WHERE id = $1
-	`
-	_, err = r.pool.Exec(context.Background(), query, user.ID, user.Name, user.Login, user.HashPass, user.Role)
+	// Check if the new login is already taken by another user (if login is being updated)
+	if user.Login != "" {
+		var loginExists bool
+		err := r.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE login = $1 AND id != $2)", user.Login, user.ID).Scan(&loginExists)
+		if err != nil {
+			return fmt.Errorf("UserRepo.UpdateUser: %w", err) // Wrapping the DB error
+		}
+		if loginExists {
+			return fmt.Errorf("UserRepo.UpdateUser: %w", domain.ErrUserAlreadyExists) // Wrapping the domain error
+		}
+	}
+
+	// Build dynamic query
+	query := "UPDATE users SET"
+	var args []interface{}
+	args = append(args, user.ID)
+	argPos := 2 // Start from $1 for the ID
+
+	// Only add fields to update if they are not empty
+	if user.Name != "" {
+		query += fmt.Sprintf(" name = $%d,", argPos)
+		args = append(args, user.Name)
+		argPos++
+	}
+	if user.Login != "" {
+		query += fmt.Sprintf(" login = $%d,", argPos)
+		args = append(args, user.Login)
+		argPos++
+	}
+	if user.HashPass != "" {
+		query += fmt.Sprintf(" hashpass = $%d,", argPos)
+		args = append(args, user.HashPass)
+		argPos++
+	}
+	if user.Role != "" {
+		query += fmt.Sprintf(" role = $%d,", argPos)
+		args = append(args, user.Role)
+		argPos++
+	}
+
+	// If no fields need to be updated, return early
+	if len(args) == 1 {
+		return nil // No updates needed
+	}
+
+	// Remove the trailing comma from the query
+	query = query[:len(query)-1] + " WHERE id = $1"
+
+	// Execute the query
+	_, err = r.pool.Exec(ctx, query, args...)
 	if err != nil {
-		return fmt.Errorf("UpdateUser failed: %w", err)
+		return fmt.Errorf("UserRepo.UpdateUser: %w", err) // Wrapping the DB error
 	}
 
 	return nil
@@ -149,7 +188,7 @@ func (r *UserRepo) DeleteUser(id uint) error {
 	var exists bool
 	err := r.pool.QueryRow(context.Background(), existsQuery, id).Scan(&exists)
 	if err != nil {
-		return fmt.Errorf("UserRepo.DeleteUser: check user existence failed: %w", err) // Ошибка БД
+		return fmt.Errorf("UserRepo.DeleteUser: %w", err) // Ошибка БД
 	}
 
 	// Если пользователя нет, возвращаем ошибку
@@ -161,7 +200,7 @@ func (r *UserRepo) DeleteUser(id uint) error {
 	query := "DELETE FROM users WHERE id = $1"
 	_, err = r.pool.Exec(context.Background(), query, id)
 	if err != nil {
-		return fmt.Errorf("UserRepo.DeleteUser failed: %w", err)
+		return fmt.Errorf("UserRepo.DeleteUser: %w", err)
 	}
 
 	return nil

@@ -43,7 +43,6 @@ func (s *UserService) GetUserByID(id uint) (*models.User, error) {
 	return user, nil
 }
 
-// 111
 func (s *UserService) GetUserByLogin(login string) (*models.User, error) {
 	const op = "UserService.GetUserByLogin"
 	user, err := s.repo.GetUserByLogin(login)

@@ -1,3 +1,5 @@
 /config
+/mocks
 .env
+*_test.go
 TODO.txt

@@ -1,3 +1,10 @@
+// This file is used to test and simulate the application's workflow during local development.
+// It uses an in-memory repository instead of a real database,
+// along with other components for quick testing and debugging.
+// This file is **not intended for production use**.
+//
+// Make sure to exclude this file from production builds and deployments.
+// It should be used solely for development and testing purposes.
 package main
 
 import (
@@ -11,7 +18,6 @@ import (
 
 	"github.com/kourai55k/booking-service/internal/config"
 	"github.com/kourai55k/booking-service/internal/data"
-	"github.com/kourai55k/booking-service/internal/domain/models"
 	"github.com/kourai55k/booking-service/internal/service"
 	"github.com/kourai55k/booking-service/internal/transport/handlers/http/router"
 	"github.com/kourai55k/booking-service/internal/transport/handlers/http/userHandler"
@@ -24,7 +30,6 @@ const (
 	envProd  = "prod"
 )
 
-// this is file with main func with inMemoryUserRepo implementation for testing
 func main() {
 	// load config
 	cfg := config.MustLoad()
@@ -45,10 +50,6 @@ func main() {
 		Handler: r,
 	}
 	log.Debug("dependencies injected")
-
-	// test users
-	userRepo.CreateUser(&models.User{Name: "name1", Login: "login1", HashPass: "hashpass1"})
-	userRepo.CreateUser(&models.User{Name: "name2", Login: "login2", HashPass: "hashpass2"})
 
 	// Channel to listen for OS signals
 	stop := make(chan os.Signal, 1)

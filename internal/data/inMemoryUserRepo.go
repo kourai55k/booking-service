@@ -84,11 +84,38 @@ func (r *InMemoryUserRepo) UpdateUser(user *models.User) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, ok := r.users[user.ID]; !ok {
+	// Check if the user exists in the in-memory map
+	existingUser, exists := r.users[user.ID]
+	if !exists {
 		return domain.ErrUserNotFound
 	}
 
-	r.users[user.ID] = user
+	// Check if the new login is unique (similar to the unique check in the DB repo)
+	if user.Login != "" && user.Login != existingUser.Login {
+		// Check if the login is already taken by another user
+		for _, u := range r.users {
+			if u.Login == user.Login {
+				return fmt.Errorf("InMemoryUserRepo.UpdateUser: %w", domain.ErrUserAlreadyExists)
+			}
+		}
+	}
+
+	// Update non-empty fields (simulating the behavior of the DB query with COALESCE/NULLIF)
+	if user.Name != "" {
+		existingUser.Name = user.Name
+	}
+	if user.Login != "" {
+		existingUser.Login = user.Login
+	}
+	if user.HashPass != "" {
+		existingUser.HashPass = user.HashPass
+	}
+	if user.Role != "" {
+		existingUser.Role = user.Role
+	}
+
+	// Update the user in the in-memory map
+	r.users[user.ID] = existingUser
 
 	return nil
 }
