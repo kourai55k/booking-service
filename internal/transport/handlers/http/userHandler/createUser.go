@@ -22,6 +22,9 @@ func (r createUserRequest) Validate() error {
 	if r.Name == "" || r.Login == "" || r.Password == "" {
 		return errors.New("missing required fields")
 	}
+	if len(r.Password) < 8 {
+		return errors.New("password must be at least 8 characters long")
+	}
 	return nil
 }
 
@@ -48,7 +51,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := req.Validate(); err != nil {
-		http.Error(w, "bad request: missing required fields", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("bad request: %v", err), http.StatusBadRequest)
 		log.Error("bad request", "error", fmt.Errorf("%s: %w", op, err).Error())
 		return
 	}

@@ -22,13 +22,13 @@ func (h *UserHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 
 	users, err := h.userService.GetUsers()
 	if err != nil {
-		if errors.Is(err, domain.ErrUserNotFound) {
-			http.Error(w, "user not found", http.StatusNotFound)
-			log.Error("user not found", "err", fmt.Errorf("%s: %w", op, err).Error())
+		if errors.Is(err, domain.ErrUsersNotFound) {
+			http.Error(w, "users not found", http.StatusNotFound)
+			log.Error("users not found", "err", fmt.Errorf("%s: %w", op, err).Error())
 			return
 		}
-		http.Error(w, "failed to get user by id", http.StatusInternalServerError)
-		log.Error("failed to get user by id", "err", err.Error())
+		http.Error(w, "failed to get users", http.StatusInternalServerError)
+		log.Error("failed to get users", "err", err.Error())
 		return
 	}
 
