@@ -1,6 +1,9 @@
 package userHandler
 
 import (
+	"fmt"
+	"net/http"
+
 	"github.com/kourai55k/booking-service/internal/domain/models"
 )
 
@@ -28,4 +31,13 @@ type UserHandler struct {
 
 func NewUserHandler(userService UserService, logger Logger) *UserHandler {
 	return &UserHandler{userService: userService, logger: logger}
+}
+
+func (h *UserHandler) ProtectedHello(w http.ResponseWriter, r *http.Request) {
+	// Here you could use the user's information from the JWT token if needed
+	login := r.Header.Get("UserLogin")
+	role := r.Header.Get("UserRole")
+
+	// Just for demonstration, returning the user's login and role
+	fmt.Fprintf(w, "Hello, %s! You are logged in as a %s.", login, role)
 }

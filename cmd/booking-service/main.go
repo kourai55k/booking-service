@@ -12,6 +12,7 @@ import (
 	"github.com/kourai55k/booking-service/internal/config"
 	"github.com/kourai55k/booking-service/internal/data/postgres"
 	"github.com/kourai55k/booking-service/internal/service"
+	"github.com/kourai55k/booking-service/internal/transport/handlers/http/authHandler"
 	"github.com/kourai55k/booking-service/internal/transport/handlers/http/router"
 	"github.com/kourai55k/booking-service/internal/transport/handlers/http/userHandler"
 	prettyslog "github.com/kourai55k/booking-service/pkg/prettySlog"
@@ -24,12 +25,12 @@ const (
 )
 
 func main() {
-	// load config
+	// load environment variables and initialize config
 	cfg := config.MustLoad()
 
 	// setup logger
 	log := setupLogger(cfg.Env)
-	log.Debug("config loaded", "config", cfg)
+	log.Debug("config loaded", "config", cfg) // maybe shouldn't show config in logs
 	log.Debug("logger initialized")
 
 	// dependency injection
@@ -45,8 +46,10 @@ func main() {
 	userRepo := postgres.NewUserRepo(pgPool)
 	userRepo.CreateUserTable()
 	userService := service.NewUserService(userRepo)
+	authService := service.NewAuthService(userRepo)
 	httpUserHandler := userHandler.NewUserHandler(userService, log)
-	r := router.NewRouter(httpUserHandler)
+	httpAuthHandler := authHandler.NewAuthHandler(authService, log)
+	r := router.NewRouter(httpUserHandler, httpAuthHandler)
 	// TODO: use config file to configure server
 	server := http.Server{
 		Addr:    ":8080",

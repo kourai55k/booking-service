@@ -19,6 +19,7 @@ import (
 	"github.com/kourai55k/booking-service/internal/config"
 	"github.com/kourai55k/booking-service/internal/data"
 	"github.com/kourai55k/booking-service/internal/service"
+	"github.com/kourai55k/booking-service/internal/transport/handlers/http/authHandler"
 	"github.com/kourai55k/booking-service/internal/transport/handlers/http/router"
 	"github.com/kourai55k/booking-service/internal/transport/handlers/http/userHandler"
 	prettyslog "github.com/kourai55k/booking-service/pkg/prettySlog"
@@ -31,7 +32,7 @@ const (
 )
 
 func main() {
-	// load config
+	// load environment variables and initialize config
 	cfg := config.MustLoad()
 
 	// setup logger
@@ -42,8 +43,10 @@ func main() {
 	// DI
 	userRepo := data.NewInMemoryUserRepo()
 	userService := service.NewUserService(userRepo)
+	authService := service.NewAuthService(userRepo)
 	httpUserHandler := userHandler.NewUserHandler(userService, log)
-	r := router.NewRouter(httpUserHandler)
+	httpAuthHandler := authHandler.NewAuthHandler(authService, log)
+	r := router.NewRouter(httpUserHandler, httpAuthHandler)
 	// TODO: use config file to configure server
 	server := http.Server{
 		Addr:    ":8080",

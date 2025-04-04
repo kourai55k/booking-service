@@ -1,6 +1,10 @@
 package router
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/kourai55k/booking-service/internal/transport/handlers/http/middleware"
+)
 
 type UserHandler interface {
 	GetUsers(w http.ResponseWriter, r *http.Request)
@@ -9,17 +13,25 @@ type UserHandler interface {
 	CreateUser(w http.ResponseWriter, r *http.Request)
 	UpdateUser(w http.ResponseWriter, r *http.Request)
 	DeleteUser(w http.ResponseWriter, r *http.Request)
+	ProtectedHello(w http.ResponseWriter, r *http.Request)
+}
+
+type AuthHandler interface {
+	Register(w http.ResponseWriter, r *http.Request)
+	Login(w http.ResponseWriter, r *http.Request)
 }
 
 type Router struct {
 	mux         *http.ServeMux
 	userHandler UserHandler
+	authHandler AuthHandler
 }
 
-func NewRouter(userHandler UserHandler) *Router {
+func NewRouter(userHandler UserHandler, authHandler AuthHandler) *Router {
 	r := &Router{
 		mux:         http.NewServeMux(),
 		userHandler: userHandler,
+		authHandler: authHandler,
 	}
 	r.RegisterRoutes()
 	return r
@@ -35,6 +47,11 @@ func (r *Router) RegisterRoutes() *http.ServeMux {
 	r.mux.HandleFunc("DELETE /user/{id}", r.userHandler.DeleteUser)
 
 	// auth routes
+	r.mux.HandleFunc("/register", r.authHandler.Register)
+	r.mux.HandleFunc("/login", r.authHandler.Login)
+
+	// test route for testing middleware
+	r.mux.Handle("/protected/hello", middleware.AuthMiddleware(http.HandlerFunc(r.userHandler.ProtectedHello)))
 
 	// restrants routes
 
