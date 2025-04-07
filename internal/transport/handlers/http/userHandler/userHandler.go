@@ -33,6 +33,7 @@ func NewUserHandler(userService UserService, logger Logger) *UserHandler {
 	return &UserHandler{userService: userService, logger: logger}
 }
 
+// delete this after testing
 func (h *UserHandler) ProtectedHello(w http.ResponseWriter, r *http.Request) {
 	// Here you could use the user's information from the JWT token if needed
 	login := r.Header.Get("UserLogin")

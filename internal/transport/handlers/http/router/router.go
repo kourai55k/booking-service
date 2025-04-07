@@ -52,6 +52,7 @@ func (r *Router) RegisterRoutes() *http.ServeMux {
 
 	// test route for testing middleware
 	r.mux.Handle("/protected/hello", middleware.AuthMiddleware(http.HandlerFunc(r.userHandler.ProtectedHello)))
+	r.mux.Handle("/admin/hello", middleware.AdminMiddleware(http.HandlerFunc(r.userHandler.ProtectedHello)))
 
 	// restrants routes
 
