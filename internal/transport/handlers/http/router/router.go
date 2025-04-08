@@ -38,6 +38,7 @@ func NewRouter(userHandler UserHandler, authHandler AuthHandler) *Router {
 }
 
 func (r *Router) RegisterRoutes() *http.ServeMux {
+	// TODO: add middlewares to user routes
 	// users routes
 	r.mux.HandleFunc("GET /user/{id}", r.userHandler.GetUserByID)
 	r.mux.HandleFunc("GET /user", r.userHandler.GetUserByLogin)
@@ -47,8 +48,8 @@ func (r *Router) RegisterRoutes() *http.ServeMux {
 	r.mux.HandleFunc("DELETE /user/{id}", r.userHandler.DeleteUser)
 
 	// auth routes
-	r.mux.HandleFunc("/register", r.authHandler.Register)
-	r.mux.HandleFunc("/login", r.authHandler.Login)
+	r.mux.HandleFunc("/auth/register", r.authHandler.Register)
+	r.mux.HandleFunc("/auth/login", r.authHandler.Login)
 
 	// test route for testing middleware
 	r.mux.Handle("/protected/hello", middleware.AuthMiddleware(http.HandlerFunc(r.userHandler.ProtectedHello)))
