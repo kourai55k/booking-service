@@ -25,6 +25,7 @@ func NewUserService(repo UserRepository) *UserService {
 
 func (s *UserService) GetUsers() ([]*models.User, error) {
 	const op = "UserService.GetUsers"
+
 	users, err := s.repo.GetUsers()
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -35,6 +36,7 @@ func (s *UserService) GetUsers() ([]*models.User, error) {
 
 func (s *UserService) GetUserByID(id uint) (*models.User, error) {
 	const op = "UserService.GetUserById"
+
 	user, err := s.repo.GetUserByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -45,6 +47,7 @@ func (s *UserService) GetUserByID(id uint) (*models.User, error) {
 
 func (s *UserService) GetUserByLogin(login string) (*models.User, error) {
 	const op = "UserService.GetUserByLogin"
+
 	user, err := s.repo.GetUserByLogin(login)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -55,6 +58,7 @@ func (s *UserService) GetUserByLogin(login string) (*models.User, error) {
 
 func (s *UserService) CreateUser(user *models.User) (uint, error) {
 	const op = "UserService.CreateUser"
+
 	id, err := s.repo.CreateUser(user)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
@@ -65,6 +69,7 @@ func (s *UserService) CreateUser(user *models.User) (uint, error) {
 
 func (s *UserService) UpdateUser(user *models.User) error {
 	const op = "UserService.UpdateUser"
+
 	err := s.repo.UpdateUser(user)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
@@ -75,6 +80,7 @@ func (s *UserService) UpdateUser(user *models.User) error {
 
 func (s *UserService) DeleteUser(id uint) error {
 	const op = "UserService.DeleteUser"
+
 	err := s.repo.DeleteUser(id)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)

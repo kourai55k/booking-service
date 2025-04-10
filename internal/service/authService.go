@@ -10,22 +10,23 @@ import (
 	jwthelper "github.com/kourai55k/booking-service/pkg/jwtHelper"
 )
 
-type AuthUserRepository interface {
+type UserServiceInterface interface {
 	GetUserByLogin(login string) (*models.User, error)
 	CreateUser(user *models.User) (uint, error)
 }
 
 type AuthService struct {
-	repo AuthUserRepository
+	userService UserServiceInterface
 }
 
-func NewAuthService(repo AuthUserRepository) *AuthService {
-	return &AuthService{repo: repo}
+func NewAuthService(userService UserServiceInterface) *AuthService {
+	return &AuthService{userService: userService}
 }
 
 func (s *AuthService) Register(user *models.User) (uint, error) {
 	const op = "AuthService.Register"
-	id, err := s.repo.CreateUser(user)
+
+	id, err := s.userService.CreateUser(user)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
@@ -37,7 +38,7 @@ func (s *AuthService) Login(login, password string) (string, error) {
 	const op = "AuthService.Login"
 
 	// check if user with provided login exist
-	user, err := s.repo.GetUserByLogin(login)
+	user, err := s.userService.GetUserByLogin(login)
 	if err != nil {
 		if errors.Is(err, domain.ErrUserNotFound) {
 			return "", fmt.Errorf("%s: %w", op, domain.ErrUserNotFound)

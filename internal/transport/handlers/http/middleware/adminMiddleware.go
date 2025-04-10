@@ -1,59 +1,51 @@
 package middleware
 
 import (
-	"fmt"
+	"context"
 	"net/http"
 	"strings"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/kourai55k/booking-service/internal/domain"
 	jwthelper "github.com/kourai55k/booking-service/pkg/jwtHelper"
 )
 
-// AdminMiddleware ensures that the token is valid and the user has an admin role.
+// AdminMiddleware ensures the user is authenticated and is an "admin"
 func AdminMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Extract the token from the Authorization header
+		// Extract the Authorization header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			http.Error(w, "Authorization header missing", http.StatusUnauthorized)
+			http.Error(w, "missing Authorization header", http.StatusUnauthorized)
 			return
 		}
 
-		// Split the header into "Bearer token"
+		// Expected format: "Bearer <token>"
 		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			http.Error(w, "Invalid Authorization format", http.StatusUnauthorized)
+		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+			http.Error(w, "invalid Authorization header format", http.StatusUnauthorized)
 			return
 		}
 
-		// Get the token from the second part
-		tokenString := parts[1]
-		// Parse and validate the token using the helper function
-		token, err := jwthelper.ParseToken(tokenString)
+		tokenStr := parts[1]
+
+		// Parse token and get claims
+		claims, err := jwthelper.ParseToken(tokenStr)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Invalid token: %s", err.Error()), http.StatusUnauthorized)
+			http.Error(w, "invalid token", http.StatusUnauthorized)
 			return
 		}
 
-		// Check if the token is valid and not expired
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok || !token.Valid {
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
+		// Validate role
+		if claims.Role != "admin" {
+			http.Error(w, "forbidden: admin access required", http.StatusForbidden)
 			return
 		}
 
-		// Verify that the user has an admin role
-		role, ok := claims["role"].(string)
-		if !ok || role != "admin" {
-			http.Error(w, "Admin privilege required", http.StatusForbidden)
-			return
-		}
+		// Add userID and role to context
+		ctx := context.WithValue(r.Context(), domain.UserIDKey, claims.UserID)
+		ctx = context.WithValue(ctx, domain.RoleKey, claims.Role)
 
-		// Optionally attach claims to request headers or context
-		r.Header.Set("UserLogin", claims["login"].(string))
-		r.Header.Set("UserRole", role)
-
-		// Call the next handler in the chain
-		next.ServeHTTP(w, r)
+		// Continue request with updated context
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

@@ -11,33 +11,33 @@ import (
 
 var (
 	secretKey = []byte(os.Getenv("JWT_SECRET"))
+	tokenTTL  = 1 * time.Hour
 )
 
-// Define a struct for custom claims that include Login and Role
+// CustomClaims includes additional fields for user identity
 type CustomClaims struct {
-	Login string `json:"login"`
-	Role  string `json:"role"`
+	UserID uint   `json:"user_id"`
+	Login  string `json:"login"`
+	Role   string `json:"role"`
 	jwt.StandardClaims
 }
 
-// GenerateToken generates a new JWT token for the user with login and role included
+// GenerateToken creates a signed JWT with custom claims
 func GenerateToken(user *models.User) (string, error) {
-	// Define token expiration time (1 hour in this example)
-	expirationTime := time.Now().Add(1 * time.Hour)
+	expirationTime := time.Now().Add(tokenTTL)
 
-	// Create custom claims with login, role, and expiration time
 	claims := &CustomClaims{
-		Login: user.Login,
-		Role:  user.Role,
+		UserID: user.ID,
+		Login:  user.Login,
+		Role:   user.Role,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expirationTime.Unix(),
+			IssuedAt:  time.Now().Unix(),
 		},
 	}
 
-	// Create the token using HMAC SHA256 signing method
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	// Sign the token with the secret key
 	signedToken, err := token.SignedString(secretKey)
 	if err != nil {
 		return "", err
@@ -46,17 +46,23 @@ func GenerateToken(user *models.User) (string, error) {
 	return signedToken, nil
 }
 
-// ParseToken parses the JWT token and returns the claims
-func ParseToken(tokenString string) (*jwt.Token, error) {
-	// Parse the JWT token
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Validate the signing method (ensure it's the correct one)
+// ParseToken parses and validates JWT, returning custom claims
+func ParseToken(tokenString string) (*CustomClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
 		}
-		// Return the secret key to verify the token signature
 		return secretKey, nil
 	})
 
-	return token, err
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(*CustomClaims)
+	if !ok || !token.Valid {
+		return nil, errors.New("invalid token claims")
+	}
+
+	return claims, nil
 }

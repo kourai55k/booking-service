@@ -17,11 +17,11 @@ type registerRequest struct {
 	Password string `json:"password"`
 }
 
-func (r registerRequest) Validate() error {
+func (r *registerRequest) validate() error {
 	if r.Name == "" || r.Login == "" || r.Password == "" {
 		return errors.New("missing required fields")
 	}
-	if len(r.Password) < 8 {
+	if len(r.Password) < domain.MinPasswordLength {
 		return errors.New("password must be at least 8 characters long")
 	}
 	return nil
@@ -40,7 +40,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	var req registerRequest
 	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields() // Prevent unknown fields
+	decoder.DisallowUnknownFields()
 	defer r.Body.Close()
 
 	if err := decoder.Decode(&req); err != nil {
@@ -49,7 +49,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := req.Validate(); err != nil {
+	if err := req.validate(); err != nil {
 		http.Error(w, fmt.Sprintf("bad request: %v", err), http.StatusBadRequest)
 		log.Error("bad request", "error", fmt.Errorf("%s: %w", op, err).Error())
 		return

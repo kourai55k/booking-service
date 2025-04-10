@@ -9,30 +9,35 @@ import (
 	jwthelper "github.com/kourai55k/booking-service/pkg/jwtHelper"
 )
 
-// AuthMiddleware is a middleware function that checks if the request has a valid JWT token
-func AuthMiddleware(next http.Handler) http.Handler {
+// OwnerMiddleware ensures the user is authenticated and is an "owner"
+func OwnerMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Extract the token from the Authorization header
+		// Extract the Authorization header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			http.Error(w, "Authorization header missing", http.StatusUnauthorized)
+			http.Error(w, "missing Authorization header", http.StatusUnauthorized)
 			return
 		}
 
-		// Split the header into "Bearer token"
+		// Expected format: "Bearer <token>"
 		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			http.Error(w, "Invalid Authorization format", http.StatusUnauthorized)
+		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+			http.Error(w, "invalid Authorization header format", http.StatusUnauthorized)
 			return
 		}
 
-		// Get the token from the second part
 		tokenStr := parts[1]
 
 		// Parse token and get claims
 		claims, err := jwthelper.ParseToken(tokenStr)
 		if err != nil {
 			http.Error(w, "invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		// Validate role
+		if claims.Role != "owner" && claims.Role != "admin" {
+			http.Error(w, "forbidden: owner access required", http.StatusForbidden)
 			return
 		}
 
